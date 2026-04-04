@@ -1,0 +1,117 @@
+/*
+ * PalmPay - Global Design System
+ * ===============================
+ * Fintech dark theme with navy + teal accent.
+ * Typography: Inter (Google Fonts)
+ */
+
+/* -------- Google Fonts -------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* -------- CSS Custom Properties (Design Tokens) -------- */
+:root {
+  /* Colors */
+  --bg: #0a0e27;
+  --bg-alt: #080b1e;
+  --surface: #131637;
+  --surface-hover: #191d42;
+  --border: rgba(255, 255, 255, 0.06);
+
+  /* Accent */
+  --accent: #00d4aa;
+  --accent-hover: #00b894;
+  --accent-glow: rgba(0, 212, 170, 0.15);
+
+  /* Text */
+  --text: #e8eaf6;
+  --text-muted: #7c8db5;
+
+  /* Danger */
+  --danger: #ff4757;
+  --danger-hover: #ff6b81;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+}
+
+/* -------- Reset & Base -------- */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* -------- Root Container -------- */
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* -------- Scrollbar Styling -------- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* -------- Selection -------- */
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* -------- Links -------- */
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* -------- Focus Visible -------- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
