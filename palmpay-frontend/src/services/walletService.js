@@ -1,14 +1,17 @@
 /**
  * Wallet Service
  * ==============
- * Handles wallet operations: balance, add money, transactions,
- * pending payments (merchant side).
+ * Refactored for Production.
+ * No direct database updates are allowed from the client.
+ * All wallet modifications go through the Flask backend.
  */
 
 import { supabase } from './supabaseClient';
 
+const BACKEND_URL = 'http://localhost:5000';
+
 /**
- * Fetch the current wallet balance for a user.
+ * Fetch the current wallet balance (Safe to do directly via Supabase RLS).
  */
 export async function getBalance(userId) {
   const { data, error } = await supabase
@@ -22,27 +25,24 @@ export async function getBalance(userId) {
 }
 
 /**
- * Add money to the user's wallet (₹100 increment).
+ * Add money - Updated to use BACKEND API
  */
 export async function addMoney(userId, amount = 100) {
-  // First get current balance
-  const currentBalance = await getBalance(userId);
-  const newBalance = parseFloat(currentBalance) + amount;
+  const response = await fetch(`${BACKEND_URL}/add-funds`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, amount })
+  });
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ wallet_balance: newBalance })
-    .eq('id', userId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data.wallet_balance;
+  const result = await response.json();
+  if (result.status === 'failed') {
+    throw new Error(result.message);
+  }
+  return result.new_balance;
 }
 
 /**
- * Fetch transaction history for a user (as customer or merchant).
- * Ordered by most recent first.
+ * Fetch latest 20 transactions.
  */
 export async function getTransactions(userId) {
   const { data, error } = await supabase
@@ -57,7 +57,7 @@ export async function getTransactions(userId) {
 }
 
 /**
- * Create a pending payment request (merchant action).
+ * Create a pending payment request (Merchant only).
  */
 export async function createPendingPayment(merchantId, amount) {
   const { data, error } = await supabase
@@ -75,7 +75,7 @@ export async function createPendingPayment(merchantId, amount) {
 }
 
 /**
- * Fetch pending payments for a merchant.
+ * Fetch pending payments per merchant.
  */
 export async function getPendingPayments(merchantId) {
   const { data, error } = await supabase
@@ -83,23 +83,21 @@ export async function getPendingPayments(merchantId) {
     .select('*')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(10);
 
   if (error) throw error;
   return data || [];
 }
 
 /**
- * Fetch the latest transaction for a user from the Flask backend.
- * Used for polling after hardware scan.
+ * Poll for latest transaction status (post-hardware scan).
  */
 export async function getLatestTransaction(userId) {
   try {
-    const response = await fetch(`http://localhost:5000/latest-transaction/${userId}`);
-    const data = await response.json();
-    return data;
+    const response = await fetch(`${BACKEND_URL}/latest-transaction/${userId}`);
+    return await response.json();
   } catch (err) {
-    console.error('Error fetching latest transaction:', err);
+    console.error('Network error checking transaction:', err);
     return { status: 'none' };
   }
 }

@@ -1,290 +1,54 @@
 """
-PalmPay Flask Backend
-=====================
-Handles palm scan simulation and secure payment processing.
-Uses Supabase service role key for direct DB operations.
+PalmPay Flask Backend (Production Architecture)
+==============================================
+Main entry point for the API. Initializes Supabase and registers modular routes.
 """
 
 import os
-import random
-import uuid
-from datetime import datetime
-
-from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask
 from flask_cors import CORS
+from dotenv import load_dotenv
 from supabase import create_client, Client
+
+# Import modular routes
+from routes.payment_routes import construct_payment_blueprint
+from routes.scan_routes import construct_scan_blueprint
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+# Enable CORS for the React frontend
 CORS(app, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
 
-# Initialize Supabase client with SERVICE ROLE key (bypasses RLS)
+# ============================================================
+# DATABASE INITIALIZATION
+# ============================================================
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-# Lazy-init: allows server to start even if credentials aren't set yet
-_supabase_client = None
+if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+    print("WARNING: Supabase credentials not found. Ensure .env is configured.")
 
-def get_supabase() -> Client:
-    """Get or create the Supabase client. Fails gracefully if creds missing."""
-    global _supabase_client
-    if _supabase_client is None:
-        url = os.getenv("SUPABASE_URL", "")
-        key = os.getenv("SUPABASE_SERVICE_KEY", "")
-        if not url or not key or "your_" in url or "your_" in key:
-            raise RuntimeError(
-                "Supabase credentials not configured. "
-                "Please fill in SUPABASE_URL and SUPABASE_SERVICE_KEY in palmpay-backend/.env"
-            )
-        _supabase_client = create_client(url, key)
-    return _supabase_client
-
+db: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # ============================================================
-# ROUTE: Health Check
+# BLUEPRINT REGISTRATION
 # ============================================================
+# We pass the db client to the constructors so routes can use it directly
+app.register_blueprint(construct_payment_blueprint(db))
+app.register_blueprint(construct_scan_blueprint(db))
+
 @app.route("/health", methods=["GET"])
 def health():
-    """Health check endpoint."""
-    return jsonify({"status": "ok", "service": "PalmPay Backend"}), 200
-
+    return {"status": "ok", "message": "PalmPay API is stable"}, 200
 
 # ============================================================
-# ROUTE: Palm Scan (Biometric Authentication)
-# ============================================================
-@app.route("/scan", methods=["POST"])
-def scan_palm():
-    """
-    Biometric palm authentication.
-    Accepts: { "user_id": "uuid-string", "image_data": "base64-string" (optional) }
-    """
-    data = request.get_json() or {}
-    user_id = data.get("user_id")
-    image_data = data.get("image_data") # placeholder for future AI processing
-
-    if not user_id:
-        return jsonify({"status": "failed", "message": "User ID required"}), 400
-
-    # Simulation logic (replace with real CV matching later)
-    confidence = round(random.uniform(0.92, 0.99), 2)
-    is_success = random.random() < 0.98
-
-    if is_success:
-        return jsonify({
-            "status": "success",
-            "user_id": user_id,
-            "confidence": confidence,
-            "message": "Identity verified via palm vein biometric"
-        }), 200
-    else:
-        return jsonify({
-            "status": "failed",
-            "message": "Biometric match failed. Please reposition hand.",
-            "confidence": round(random.uniform(0.10, 0.40), 2)
-        }), 200
-
-
-# ============================================================
-# ROUTES: Hardware Integration Helpers
-# ============================================================
-@app.route("/get-pending-payment", methods=["GET"])
-def get_pending_payment():
-    """
-    Used by Raspberry Pi to check if a merchant has requested a payment.
-    Returns the oldest pending payment across the system for simplicity.
-    """
-    try:
-        db = get_supabase()
-        result = db.table("pending_payments") \
-            .select("*") \
-            .eq("status", "pending") \
-            .order("created_at", desc=False) \
-            .limit(1) \
-            .execute()
-
-        if result.data and len(result.data) > 0:
-            return jsonify({
-                "status": "found",
-                "payment": result.data[0]
-            }), 200
-        else:
-            return jsonify({"status": "none"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/latest-transaction/<user_id>", methods=["GET"])
-def get_latest_transaction(user_id):
-    """
-    Allows the Frontend to poll for the most recent transaction status.
-    Helpful for showing 'Payment Successful' toast when hardware finishes scan.
-    """
-    try:
-        db = get_supabase()
-        result = db.table("transactions") \
-            .select("*") \
-            .eq("user_id", user_id) \
-            .order("created_at", desc=True) \
-            .limit(1) \
-            .execute()
-
-        if result.data and len(result.data) > 0:
-            return jsonify({
-                "status": "success",
-                "transaction": result.data[0]
-            }), 200
-        else:
-            return jsonify({"status": "none"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-# ============================================================
-# ROUTE: Process Payment (SECURE - runs on backend only)
-# ============================================================
-@app.route("/process-payment", methods=["POST"])
-def process_payment():
-    """
-    Securely processes a payment on the backend.
-    
-    Input: { "customer_id": "uuid-string" }
-    
-    Logic:
-    1. Fetch latest pending payment
-    2. Check customer balance
-    3. If sufficient: deduct, credit merchant, record transaction, mark completed
-    4. If insufficient: return error
-    """
-    data = request.get_json() or {}
-    customer_id = data.get("customer_id")
-
-    if not customer_id:
-        return jsonify({
-            "status": "failed",
-            "message": "Customer ID is required"
-        }), 400
-
-    try:
-        db = get_supabase()
-
-        # Step 1: Fetch the latest pending payment
-        pending_result = db.table("pending_payments") \
-            .select("*") \
-            .eq("status", "pending") \
-            .order("created_at", desc=False) \
-            .limit(1) \
-            .execute()
-
-        if not pending_result.data or len(pending_result.data) == 0:
-            return jsonify({
-                "status": "failed",
-                "message": "No pending payment found"
-            }), 404
-
-        payment = pending_result.data[0]
-        payment_id = payment["id"]
-        merchant_id = payment["merchant_id"]
-        amount = float(payment["amount"])
-
-        # Step 2: Fetch customer profile and check balance
-        customer_result = db.table("profiles") \
-            .select("*") \
-            .eq("id", customer_id) \
-            .single() \
-            .execute()
-
-        if not customer_result.data:
-            return jsonify({
-                "status": "failed",
-                "message": "Customer not found"
-            }), 404
-
-        customer = customer_result.data
-        customer_balance = float(customer["wallet_balance"])
-
-        if customer_balance < amount:
-            return jsonify({
-                "status": "failed",
-                "message": f"Insufficient balance. Current: ₹{customer_balance:.2f}, Required: ₹{amount:.2f}"
-            }), 400
-
-        # Step 3: Fetch merchant profile
-        merchant_result = db.table("profiles") \
-            .select("*") \
-            .eq("id", merchant_id) \
-            .single() \
-            .execute()
-
-        if not merchant_result.data:
-            return jsonify({
-                "status": "failed",
-                "message": "Merchant not found"
-            }), 404
-
-        merchant = merchant_result.data
-        merchant_balance = float(merchant["wallet_balance"])
-
-        # Step 4: Deduct from customer wallet
-        new_customer_balance = customer_balance - amount
-        db.table("profiles") \
-            .update({"wallet_balance": new_customer_balance}) \
-            .eq("id", customer_id) \
-            .execute()
-
-        # Step 5: Credit to merchant wallet
-        new_merchant_balance = merchant_balance + amount
-        db.table("profiles") \
-            .update({"wallet_balance": new_merchant_balance}) \
-            .eq("id", merchant_id) \
-            .execute()
-
-        # Step 6: Record debit transaction (customer side)
-        db.table("transactions").insert({
-            "user_id": customer_id,
-            "merchant_id": merchant_id,
-            "amount": amount,
-            "type": "debit"
-        }).execute()
-
-        # Step 7: Record credit transaction (merchant side)
-        db.table("transactions").insert({
-            "user_id": customer_id,
-            "merchant_id": merchant_id,
-            "amount": amount,
-            "type": "credit"
-        }).execute()
-
-        # Step 8: Mark pending payment as completed
-        db.table("pending_payments") \
-            .update({"status": "completed"}) \
-            .eq("id", payment_id) \
-            .execute()
-
-        return jsonify({
-            "status": "success",
-            "message": f"Payment of ₹{amount:.2f} processed successfully",
-            "transaction": {
-                "amount": amount,
-                "merchant_id": merchant_id,
-                "customer_id": customer_id,
-                "new_balance": new_customer_balance
-            }
-        }), 200
-
-    except Exception as e:
-        print(f"Payment processing error: {str(e)}")
-        return jsonify({
-            "status": "failed",
-            "message": f"Payment processing failed: {str(e)}"
-        }), 500
-
-
-# ============================================================
-# Run the Flask server
+# SERVER START
 # ============================================================
 if __name__ == "__main__":
-    print("PalmPay Backend running on http://localhost:5000")
+    print("-----------------------------------------")
+    print("PalmPay Production Backend: ONLINE")
+    print("Local Endpoint: http://localhost:5000")
+    print("-----------------------------------------")
     app.run(host="0.0.0.0", port=5000, debug=True)
