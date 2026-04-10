@@ -88,3 +88,18 @@ export async function getPendingPayments(merchantId) {
   if (error) throw error;
   return data || [];
 }
+
+/**
+ * Fetch the latest transaction for a user from the Flask backend.
+ * Used for polling after hardware scan.
+ */
+export async function getLatestTransaction(userId) {
+  try {
+    const response = await fetch(`http://localhost:5000/latest-transaction/${userId}`);
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error('Error fetching latest transaction:', err);
+    return { status: 'none' };
+  }
+}

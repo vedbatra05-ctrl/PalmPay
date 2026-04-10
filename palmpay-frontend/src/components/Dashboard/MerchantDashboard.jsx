@@ -1,10 +1,7 @@
 /**
  * Merchant Dashboard
  * ==================
- * Dashboard for merchant users. Features:
- * - Enter payment amount
- * - Request Payment (creates pending_payment)
- * - View recent received payments with status
+ * Professional dashboard for merchants with Emerald Biometric theme.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -28,9 +25,6 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
   const [statusType, setStatusType] = useState(null); // null | 'success' | 'failed'
   const [loadingData, setLoadingData] = useState(true);
 
-  /**
-   * Fetch balance, pending payments, and transactions on mount.
-   */
   const fetchData = useCallback(async () => {
     if (!profile?.id) return;
     try {
@@ -51,19 +45,14 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
 
   useEffect(() => {
     fetchData();
-    // Auto-refresh every 10 seconds to catch incoming payments
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 5000); // Polling faster for merchant to see payment status
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  /**
-   * Create a new pending payment request.
-   */
   const handleRequestPayment = async () => {
     const parsedAmount = parseFloat(amount);
-
     if (!parsedAmount || parsedAmount <= 0) {
-      setStatusMessage('Please enter a valid amount');
+      setStatusMessage('Enter a valid payment amount');
       setStatusType('failed');
       return;
     }
@@ -73,29 +62,23 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
 
     try {
       await createPendingPayment(profile.id, parsedAmount);
-      setStatusMessage(`Payment request of ₹${parsedAmount.toFixed(2)} created!`);
+      setStatusMessage(`Payment request for ₹${parsedAmount.toFixed(2)} active on terminal.`);
       setStatusType('success');
       setAmount('');
-      // Refresh pending payments list
       await fetchData();
-      refreshProfile();
     } catch (err) {
-      setStatusMessage('Failed to create request: ' + err.message);
+      setStatusMessage('Request failed: ' + err.message);
       setStatusType('failed');
     } finally {
       setRequesting(false);
-      setTimeout(() => { setStatusType(null); setStatusMessage(''); }, 4000);
+      setTimeout(() => { setStatusType(null); setStatusMessage(''); }, 5000);
     }
   };
 
-  /**
-   * Format timestamp for display.
-   */
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleString('en-IN', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -104,42 +87,35 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h1 className="dashboard-title">Merchant Dashboard</h1>
-        <p className="dashboard-subtitle">Welcome back, {profile?.name}</p>
+        <h1 className="dashboard-title">Merchant Command Centre</h1>
+        <p className="dashboard-subtitle">Business Identity: {profile?.name}</p>
       </div>
 
-      {/* Status Banner */}
       {statusType && (
         <div className={`status-banner status-${statusType}`}>
-          {statusType === 'success' && <span className="status-icon">✓</span>}
-          {statusType === 'failed' && <span className="status-icon">✕</span>}
-          <span>{statusMessage}</span>
+          {statusType === 'success' ? '✓' : '✕'} {statusMessage}
         </div>
       )}
 
-      {/* Cards Grid */}
       <div className="dashboard-grid">
-        {/* Merchant Balance */}
-        <Card title="Merchant Balance" className="balance-card">
+        {/* Merchant Revenue */}
+        <Card title="Business Revenue" className="balance-card glass-card">
           <div className="balance-amount">
             <span className="currency">₹</span>
-            <span className="amount">{parseFloat(balance).toFixed(2)}</span>
+            <span className="amount">{parseFloat(balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
           </div>
-          <p className="balance-note">Updated automatically on payment</p>
+          <p className="balance-note">Settlements are processed in real-time</p>
         </Card>
 
-        {/* Request Payment */}
-        <Card title="Request Payment" className="actions-card">
-          <div className="form-group">
-            <label htmlFor="payment-amount">Amount (₹)</label>
+        {/* Create Payment Request */}
+        <Card title="Terminal Input" className="actions-card glass-card">
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label className="pin-label" style={{ marginBottom: '8px', display: 'block' }}>Sale Amount (INR)</label>
             <input
-              id="payment-amount"
               type="number"
-              min="1"
-              step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount"
+              placeholder="0.00"
               className="merchant-input"
             />
           </div>
@@ -149,34 +125,34 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
             variant="primary"
             fullWidth
           >
-            💳 Request Payment
+            ⚡ Create Payment Request
           </Button>
         </Card>
       </div>
 
-      {/* Pending Payments */}
-      <Card title="Payment Requests" className="transactions-card">
+      {/* Live Payment Requests */}
+      <Card title="Active Terminals" className="transactions-card glass-card">
         {loadingData ? (
-          <p className="empty-state">Loading...</p>
+          <p className="empty-state">Securely fetching terminal status...</p>
         ) : pendingPayments.length === 0 ? (
-          <p className="empty-state">No payment requests yet</p>
+          <p className="empty-state">No active payment requests</p>
         ) : (
           <div className="transactions-table-wrapper">
             <table className="transactions-table">
               <thead>
                 <tr>
                   <th>Amount</th>
-                  <th>Status</th>
-                  <th>Date</th>
+                  <th>Terminal Status</th>
+                  <th>Timestamp</th>
                 </tr>
               </thead>
               <tbody>
                 {pendingPayments.map((payment) => (
                   <tr key={payment.id}>
-                    <td className="tx-credit">₹{parseFloat(payment.amount).toFixed(2)}</td>
+                    <td className="tx-credit" style={{ fontWeight: 700 }}>₹{parseFloat(payment.amount).toFixed(2)}</td>
                     <td>
                       <span className={`payment-status status-badge-${payment.status}`}>
-                        {payment.status}
+                        {payment.status === 'pending' ? '● Waiting for Scan' : '✓ Completed'}
                       </span>
                     </td>
                     <td className="tx-date">{formatDate(payment.created_at)}</td>
@@ -188,37 +164,33 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
         )}
       </Card>
 
-      {/* Recent Transactions */}
-      {transactions.length > 0 && (
-        <Card title="Recent Received Payments" className="transactions-card">
-          <div className="transactions-table-wrapper">
-            <table className="transactions-table">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions
-                  .filter((tx) => tx.type === 'credit')
-                  .map((tx) => (
-                    <tr key={tx.id}>
-                      <td>
-                        <span className="tx-type tx-credit">↓ Received</span>
-                      </td>
-                      <td className="tx-credit">
-                        +₹{parseFloat(tx.amount).toFixed(2)}
-                      </td>
-                      <td className="tx-date">{formatDate(tx.created_at)}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      {/* Transaction History */}
+      <Card title="Recent Settlements" className="transactions-card glass-card" style={{ marginTop: '24px' }}>
+        <div className="transactions-table-wrapper">
+          <table className="transactions-table">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Revenue</th>
+                <th>Processed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions
+                .filter((tx) => tx.type === 'credit')
+                .map((tx) => (
+                  <tr key={tx.id}>
+                    <td className="tx-date">TXN-{tx.id.slice(0, 8).toUpperCase()}</td>
+                    <td className="tx-credit" style={{ fontWeight: 700 }}>
+                      +₹{parseFloat(tx.amount).toFixed(2)}
+                    </td>
+                    <td className="tx-date">{formatDate(tx.created_at)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }

@@ -1,19 +1,19 @@
 /* Navbar Styles */
 
 .navbar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: rgba(19, 19, 19, 0.8);
+  border-bottom: 1px solid rgba(110, 229, 145, 0.1);
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
 }
 
 .navbar-inner {
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
-  padding: 0 24px;
-  height: 64px;
+  padding: 0 32px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -22,73 +22,76 @@
 .navbar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .navbar-brand:hover {
-  opacity: 0.85;
+  transform: translateY(-1px);
 }
 
 .navbar-logo {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
+  filter: drop-shadow(0 0 10px rgba(110, 229, 145, 0.3));
 }
 
 .navbar-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 800;
   color: var(--text);
-  letter-spacing: -0.5px;
+  letter-spacing: -1px;
+  background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .navbar-user {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
 }
 
 .navbar-user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .navbar-user-name {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text);
 }
 
 .navbar-role-badge {
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 30px;
+  font-size: 0.65rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.2px;
+  border: 1px solid rgba(110, 229, 145, 0.2);
 }
 
 .role-customer {
-  background: rgba(0, 212, 170, 0.12);
-  color: var(--accent);
-  border: 1px solid rgba(0, 212, 170, 0.25);
+  background: rgba(110, 229, 145, 0.1);
+  color: var(--primary);
 }
 
 .role-merchant {
-  background: rgba(108, 92, 231, 0.12);
-  color: #a29bfe;
-  border: 1px solid rgba(108, 92, 231, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
 }
 
 .navbar-logout {
-  background: transparent;
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-muted);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 500;
+  padding: 8px 18px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   font-family: 'Inter', sans-serif;
@@ -96,8 +99,9 @@
 
 .navbar-logout:hover {
   border-color: #ff4757;
-  color: #ff4757;
-  background: rgba(255, 71, 87, 0.06);
+  color: #fff;
+  background: #ff4757;
+  box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
 }
 
 /* Mobile responsive */
@@ -107,6 +111,10 @@
   }
 
   .navbar-inner {
-    padding: 0 16px;
+    padding: 0 20px;
+  }
+  
+  .navbar-title {
+    display: none;
   }
 }

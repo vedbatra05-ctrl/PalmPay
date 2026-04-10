@@ -53,35 +53,93 @@ def health():
 
 
 # ============================================================
-# ROUTE: Palm Scan Simulation
+# ROUTE: Palm Scan (Biometric Authentication)
 # ============================================================
 @app.route("/scan", methods=["POST"])
 def scan_palm():
     """
-    Simulates biometric palm authentication.
-    Accepts: { "user_id": "uuid-string" }
-    Returns success (95% probability) or failure.
+    Biometric palm authentication.
+    Accepts: { "user_id": "uuid-string", "image_data": "base64-string" (optional) }
     """
     data = request.get_json() or {}
-    user_id = data.get("user_id", str(uuid.uuid4()))
+    user_id = data.get("user_id")
+    image_data = data.get("image_data") # placeholder for future AI processing
 
-    # Simulate biometric scan with 95% success rate
-    confidence = round(random.uniform(0.85, 0.99), 2)
-    is_success = random.random() < 0.95
+    if not user_id:
+        return jsonify({"status": "failed", "message": "User ID required"}), 400
+
+    # Simulation logic (replace with real CV matching later)
+    confidence = round(random.uniform(0.92, 0.99), 2)
+    is_success = random.random() < 0.98
 
     if is_success:
         return jsonify({
             "status": "success",
             "user_id": user_id,
             "confidence": confidence,
-            "message": "Palm authentication successful"
+            "message": "Identity verified via palm vein biometric"
         }), 200
     else:
         return jsonify({
             "status": "failed",
-            "message": "Palm authentication failed. Please try again.",
+            "message": "Biometric match failed. Please reposition hand.",
             "confidence": round(random.uniform(0.10, 0.40), 2)
         }), 200
+
+
+# ============================================================
+# ROUTES: Hardware Integration Helpers
+# ============================================================
+@app.route("/get-pending-payment", methods=["GET"])
+def get_pending_payment():
+    """
+    Used by Raspberry Pi to check if a merchant has requested a payment.
+    Returns the oldest pending payment across the system for simplicity.
+    """
+    try:
+        db = get_supabase()
+        result = db.table("pending_payments") \
+            .select("*") \
+            .eq("status", "pending") \
+            .order("created_at", desc=False) \
+            .limit(1) \
+            .execute()
+
+        if result.data and len(result.data) > 0:
+            return jsonify({
+                "status": "found",
+                "payment": result.data[0]
+            }), 200
+        else:
+            return jsonify({"status": "none"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/latest-transaction/<user_id>", methods=["GET"])
+def get_latest_transaction(user_id):
+    """
+    Allows the Frontend to poll for the most recent transaction status.
+    Helpful for showing 'Payment Successful' toast when hardware finishes scan.
+    """
+    try:
+        db = get_supabase()
+        result = db.table("transactions") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .order("created_at", desc=True) \
+            .limit(1) \
+            .execute()
+
+        if result.data and len(result.data) > 0:
+            return jsonify({
+                "status": "success",
+                "transaction": result.data[0]
+            }), 200
+        else:
+            return jsonify({"status": "none"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ============================================================
@@ -228,5 +286,5 @@ def process_payment():
 # Run the Flask server
 # ============================================================
 if __name__ == "__main__":
-    print("🖐️  PalmPay Backend running on http://localhost:5000")
+    print("PalmPay Backend running on http://localhost:5000")
     app.run(host="0.0.0.0", port=5000, debug=True)
