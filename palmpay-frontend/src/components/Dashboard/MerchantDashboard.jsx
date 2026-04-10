@@ -13,6 +13,7 @@ import {
   getPendingPayments,
   getBalance,
   getTransactions,
+  resetTerminal,
 } from '../../services/walletService';
 import './Dashboard.css';
 
@@ -49,7 +50,6 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
 
   useEffect(() => {
     fetchData();
-    // Faster polling for merchant to detect "completed" hardware scans
     const interval = setInterval(fetchData, 3000); 
     return () => clearInterval(interval);
   }, [fetchData]);
@@ -83,6 +83,32 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
     }
   };
 
+  /**
+   * Admin Reset Logic
+   */
+  const handleAdminReset = async () => {
+    if (!window.confirm('Emergency Override: Clear all pending billing requests?')) return;
+    
+    setIsProcessing(true);
+    setStatusMessage('Admin Override in progress...');
+    try {
+      const res = await resetTerminal(profile.id);
+      if (res.status === 'success') {
+        setStatusMessage('Terminal Reset Successful.');
+        setStatusType('success');
+        fetchData();
+      } else {
+        throw new Error(res.message);
+      }
+    } catch (err) {
+      setStatusMessage(`Reset Failed: ${err.message}`);
+      setStatusType('failed');
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => { setStatusType(null); setStatusMessage(''); }, 4000);
+    }
+  };
+
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleString('en-IN', {
       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
@@ -98,6 +124,7 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
 
       {statusMessage && (
         <div className={`status-banner status-${statusType || 'info'}`}>
+          {isProcessing && <div className="spinner-small" style={{ marginRight: '10px' }}></div>}
           {statusMessage}
         </div>
       )}
@@ -135,6 +162,18 @@ export default function MerchantDashboard({ profile, refreshProfile }) {
       </div>
 
       <Card title="Terminal Queue (Pending/Active)" className="transactions-card glass-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <p className="empty-state" style={{ margin: 0, fontSize: '0.9rem' }}>Active billing requests awaiting scans.</p>
+          {profile?.role === 'admin' && (
+            <Button 
+                onClick={handleAdminReset} 
+                variant="secondary" 
+                style={{ border: '1px solid #ff4444', color: '#ff4444', padding: '4px 12px', fontSize: '0.8rem' }}
+            >
+              🚨 Emergency Reset
+            </Button>
+          )}
+        </div>
         {loadingData ? (
           <p className="empty-state">Securely fetching terminal status...</p>
         ) : pendingPayments.length === 0 ? (

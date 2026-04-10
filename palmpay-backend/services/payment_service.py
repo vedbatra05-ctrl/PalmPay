@@ -127,3 +127,29 @@ class PaymentService:
         except Exception as e:
             logger.error(f"Error fetching history: {str(e)}")
             return []
+
+    def cancel_payment(self, payment_id: str, status: str = "expired") -> Dict[str, Any]:
+        """Marks a pending payment as expired or cancelled."""
+        try:
+            self.db.table("pending_payments").update({"status": status}).eq("id", payment_id).execute()
+            logger.info(f"Payment {payment_id} marked as {status}")
+            return {"status": "success", "message": f"Payment {status}."}
+        except Exception as e:
+            logger.error(f"Error cancelling payment: {str(e)}")
+            return {"status": "failed", "message": str(e)}
+
+    def reset_terminal(self, admin_id: str) -> Dict[str, Any]:
+        """Clears all pending payments. Restricted to Admin role."""
+        try:
+            # Verify Admin Role
+            admin = self.db.table("profiles").select("role").eq("id", admin_id).single().execute().data
+            if not admin or admin.get("role") != "admin":
+                logger.warning(f"Unauthorized reset attempt by {admin_id}")
+                return {"status": "failed", "message": "Unauthorized. Admin role required."}
+
+            self.db.table("pending_payments").update({"status": "cancelled"}).eq("status", "pending").execute()
+            logger.info(f"Terminal reset by admin {admin_id}")
+            return {"status": "success", "message": "Terminal reset. All pending bills cleared."}
+        except Exception as e:
+            logger.error(f"Admin reset failure: {str(e)}")
+            return {"status": "failed", "message": str(e)}

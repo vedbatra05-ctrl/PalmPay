@@ -101,3 +101,27 @@ export async function getLatestTransaction(userId) {
     return { status: 'none' };
   }
 }
+
+/**
+ * Reset terminal (Admin only).
+ */
+export async function resetTerminal(adminId) {
+  const response = await fetch(`${BACKEND_URL}/admin/reset-payments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ admin_id: adminId })
+  });
+  return await response.json();
+}
+
+/**
+ * Manually cancel/expire a payment.
+ */
+export async function cancelPayment(paymentId, status = 'cancelled') {
+  const response = await fetch(`${BACKEND_URL}/cancel-payment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payment_id: paymentId, status })
+  });
+  return await response.json();
+}

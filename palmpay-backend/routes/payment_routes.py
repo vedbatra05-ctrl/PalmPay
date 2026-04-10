@@ -59,4 +59,27 @@ def construct_payment_blueprint(db):
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
+    @payment_bp.route("/cancel-payment", methods=["POST"])
+    def cancel_payment():
+        data = request.get_json() or {}
+        payment_id = data.get("payment_id")
+        status = data.get("status", "expired")
+        
+        if not payment_id:
+            return jsonify({"status": "failed", "message": "Payment ID missing."}), 400
+            
+        result = payment_service.cancel_payment(payment_id, status)
+        return jsonify(result), 200 if result["status"] == "success" else 400
+
+    @payment_bp.route("/admin/reset-payments", methods=["POST"])
+    def admin_reset():
+        data = request.get_json() or {}
+        admin_id = data.get("admin_id")
+        
+        if not admin_id:
+            return jsonify({"status": "failed", "message": "Admin ID missing."}), 400
+            
+        result = payment_service.reset_terminal(admin_id)
+        return jsonify(result), 200 if result["status"] == "success" else 400
+
     return payment_bp

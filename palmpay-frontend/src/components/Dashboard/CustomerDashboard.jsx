@@ -58,23 +58,24 @@ export default function CustomerDashboard({ profile, refreshProfile }) {
     const pollInterval = setInterval(async () => {
       try {
         const result = await getLatestTransaction(profile.id);
+        
+        // If a new successful transaction is detected
         if (result.status === 'success' && result.transaction.id !== lastTxId.current) {
           lastTxId.current = result.transaction.id;
           setScanStatus('success');
           setStatusMessage(`Payment Verified: ₹${result.transaction.amount} deducted.`);
           
-          // Refresh balance immediately
           const newBal = await getBalance(profile.id);
           setBalance(newBal);
           fetchData();
           refreshProfile();
 
-          setTimeout(() => { setScanStatus(null); setStatusMessage(''); }, 5000);
+          setTimeout(() => { setScanStatus(null); setStatusMessage(''); }, 6000);
         }
       } catch (e) {
-        // Silent fail for background polling
+        console.error('Polling error:', e);
       }
-    }, 4000);
+    }, 3000);
 
     return () => clearInterval(pollInterval);
   }, [profile?.id, fetchData, refreshProfile]);
